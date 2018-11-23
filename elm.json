@@ -1,6 +1,6 @@
 {
     "type": "package",
-    "name": "sporto/erl",
+    "name": "RomanErnst/erl",
     "summary": "Parse and construct URLs",
     "license": "MIT",
     "version": "15.0.0",
