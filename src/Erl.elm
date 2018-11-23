@@ -52,6 +52,7 @@ import Dict
 import Http
 import Regex
 import String exposing (..)
+import Url
 
 
 -- TYPES
@@ -208,15 +209,17 @@ extractHost str =
     else
         let
             -- Look for something with a dot e.g. host.tld
-            rx =
-                "((\\w|-)+\\.)+(\\w|-)+"
+            matches s=
+                Regex.fromString "((\\w|-)+\\.)+(\\w|-)+"
+                    |> Maybe.map (\rx -> Regex.findAtMost 1 rx s)
+                    |> Maybe.withDefault []
         in
             str
                 |> rightFromOrSame "//"
                 |> leftFromOrSame "/"
-                |> Regex.find (Regex.AtMost 1) (Regex.regex rx)
-                |> List.map .match
+                |> matches
                 |> List.head
+                |> Maybe.map .match
                 |> Maybe.withDefault ""
 
 
@@ -248,11 +251,11 @@ SFTP -> 22
 extractPort : String -> Int
 extractPort str =
     let
-        rx =
-            Regex.regex ":\\d+"
-
         res =
-            Regex.find (Regex.AtMost 1) rx str
+            Regex.fromString ":\\d+"
+            |> Maybe.map (\rx -> Regex.findAtMost 1 rx str)
+            |> Maybe.withDefault []
+
     in
         res
             |> List.map .match
@@ -262,7 +265,7 @@ extractPort str =
             |> toInt
             |> \result ->
                 case result of
-                    Ok port_ ->
+                    Just port_ ->
                         port_
 
                     _ ->
@@ -293,15 +296,20 @@ extractPort str =
 extractPath : String -> String
 extractPath str =
     let
-        host =
+        host_ =
             extractHost str
+
+        replace maybeRegex s =
+            maybeRegex
+                |> Maybe.map (\rx -> Regex.replaceAtMost 1 rx (\_ -> "") s)
+                |> Maybe.withDefault s
     in
         str
             |> rightFromOrSame "//"
             |> leftFromOrSame "?"
             |> leftFromOrSame "#"
-            |> Regex.replace (Regex.AtMost 1) (Regex.regex host) (\_ -> "")
-            |> Regex.replace (Regex.AtMost 1) (Regex.regex ":\\d+") (\_ -> "")
+            |> replace (Regex.fromString host_)
+            |> replace (Regex.fromString ":\\d+")
 
 
 parsePath : String -> List String
@@ -309,7 +317,7 @@ parsePath str =
     str
         |> split "/"
         |> List.filter notEmpty
-        |> List.map Http.decodeUri
+        |> List.map Url.percentDecode
         |> List.map (Maybe.withDefault "")
 
 
@@ -320,12 +328,16 @@ pathFromAll str =
 
 hasLeadingSlashFromAll : String -> Bool
 hasLeadingSlashFromAll str =
-    Regex.contains (Regex.regex "^/") (extractPath str)
+    Regex.fromString "^/"
+        |> Maybe.map (\rx -> Regex.contains rx (extractPath str))
+        |> Maybe.withDefault False
 
 
 hasTrailingSlashFromAll : String -> Bool
 hasTrailingSlashFromAll str =
-    Regex.contains (Regex.regex "/$") (extractPath str)
+    Regex.fromString "/$"
+        |> Maybe.map (\rx -> Regex.contains rx (extractPath str))
+        |> Maybe.withDefault False
 
 
 
@@ -382,13 +394,13 @@ queryStringElementToTuple element =
             Maybe.withDefault "" (List.head splitted)
 
         firstDecoded =
-            Http.decodeUri first |> Maybe.withDefault ""
+            Url.percentDecode first |> Maybe.withDefault ""
 
         second =
             Maybe.withDefault "" (List.head (List.drop 1 splitted))
 
         secondDecoded =
-            Http.decodeUri second |> Maybe.withDefault ""
+            Url.percentDecode second |> Maybe.withDefault ""
     in
         ( firstDecoded, secondDecoded )
 
@@ -447,7 +459,7 @@ queryToString : Url -> String
 queryToString url =
     let
         encodedTuples =
-            List.map (\( x, y ) -> ( Http.encodeUri x, Http.encodeUri y )) url.query
+            List.map (\( x, y ) -> ( Url.percentEncode x, Url.percentEncode y )) url.query
 
         parts =
             List.map (\( a, b ) -> a ++ "=" ++ b) encodedTuples
@@ -470,7 +482,7 @@ protocolComponent url =
 
 hostComponent : Url -> String
 hostComponent url =
-    Http.encodeUri (join "." url.host)
+    Url.percentEncode (join "." url.host)
 
 
 portComponent : Url -> String
@@ -483,14 +495,14 @@ portComponent url =
             ""
 
         _ ->
-            ":" ++ (Basics.toString url.port_)
+            ":" ++ (String.fromInt url.port_)
 
 
 pathComponent : Url -> String
 pathComponent url =
     let
         encoded =
-            List.map Http.encodeUri url.path
+            List.map Url.percentEncode url.path
 
         leadingSlash =
             if hostComponent url /= "" || url.hasLeadingSlash then
