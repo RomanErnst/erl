@@ -18,6 +18,7 @@ module Erl
         , setQuery
         , toString
         , Url
+        , absoluteUrl
         )
 
 {-| Library for parsing and constructing URLs
@@ -691,3 +692,22 @@ toString url =
             hashToString url
     in
         protocol_ ++ host_ ++ port_ ++ path_ ++ trailingSlash_ ++ query_ ++ hash
+
+
+absoluteUrl : Url -> String
+absoluteUrl url =
+    let
+        path_ =
+                    pathComponent url
+
+        trailingSlash_ =
+            trailingSlashComponent url
+
+        query_ =
+            queryToString url
+
+        hash =
+            hashToString url
+
+    in
+    path_ ++ trailingSlash_ ++ query_ ++ hash
