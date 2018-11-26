@@ -39,7 +39,7 @@ module Erl
 @docs addQuery, setQuery, removeQuery, clearQuery, appendPathSegments
 
 # Serialize
-@docs toString
+@docs toString, absoluteUrl
 
 # Serialization helpers
 @docs queryToString
@@ -694,6 +694,23 @@ toString url =
         protocol_ ++ host_ ++ port_ ++ path_ ++ trailingSlash_ ++ query_ ++ hash
 
 
+{-| Generate absolute url string from an Erl.Url record
+
+    url = { protocol = "http",
+          , username = "",
+          , password = "",
+          , host = ["www", "foo", "com"],
+          , path = ["users", "1"],
+          , hasLeadingSlash = False
+          , hasTrailingSlash = False
+          , port_ = 2000,
+          , hash = "a/b",
+          , query = Dict.empty |> Dict.insert "q" "1" |> Dict.insert "k" "2"
+          }
+
+    Erl.toString url == "/users/1?k=2&q=1#a/b"
+
+-}
 absoluteUrl : Url -> String
 absoluteUrl url =
     let
