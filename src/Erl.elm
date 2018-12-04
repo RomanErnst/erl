@@ -50,7 +50,6 @@ module Erl
 -}
 
 import Dict
-import Http
 import Regex
 import String exposing (..)
 import Url
